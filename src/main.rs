@@ -76,25 +76,38 @@ async fn clone_repo(
         .iter()
         .find(|ovrd| ovrd.rule == rule);
 
-    match ovrd {
-        Some(_data) => {
-            todo!("build a package")
+    let package = format!(
+        "rule@{}",
+        match ovrd {
+            Some(_data) => {
+                todo!("build a package")
+            }
+            None => {
+                let scope = config
+                    .rules
+                    .source
+                    .scope
+                    .as_ref()
+                    .and_then(|f| format!("{f}/").into())
+                    .unwrap_or_default();
+
+                let registry = &config.rules.source.registry;
+                format!(
+                    "{registry}:{scope}{}{rule}{}",
+                    config.rules.prefix, config.rules.source.version
+                )
+            }
         }
-        None => {
-            let package = format!(
-                "rule@npm:{}/{}{}@latest",
-                config.rules.scope, config.rules.prefix, rule
-            );
-            debug!(rule = package, "installing");
-            Command::new("npm")
-                .arg("install")
-                .arg("--prefix")
-                .arg(&folder)
-                .arg(package)
-                .output()
-                .expect("failed to execute process");
-        }
-    }
+    );
+
+    debug!(rule = package, "installing");
+    Command::new("npm")
+        .arg("install")
+        .arg("--prefix")
+        .arg(&folder)
+        .arg(package)
+        .output()
+        .expect("failed to execute process");
 
     let mut file = compose.lock().await;
     file.services.insert(

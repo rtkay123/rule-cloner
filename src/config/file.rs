@@ -44,20 +44,31 @@ pub enum RuleVersion {
         url: String,
     },
     Version {
-        version: String,
-        registry: String,
-        scope: String,
-        prefix: String,
+        #[serde(flatten)]
+        source: RuleSource,
     },
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Rules {
-    pub registry: String,
-    pub scope: String,
-    pub prefix: String,
     pub rules: Vec<String>,
+    #[serde(flatten)]
+    pub source: RuleSource,
     #[serde(rename = "override")]
     pub override_field: Vec<Override>,
+    pub prefix: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuleSource {
+    #[serde(default = "default_version")]
+    pub version: String,
+    pub registry: String,
+    pub scope: Option<String>,
+}
+
+fn default_version() -> String {
+    "@latest".to_string()
 }
