@@ -26,7 +26,8 @@ impl TryFrom<&PathBuf> for AppConfig {
 #[serde(rename_all = "camelCase")]
 pub struct Executor {
     pub source: String,
-    pub branch: String,
+    #[serde(rename = "ref")]
+    pub git_ref: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -35,13 +36,15 @@ pub struct Override {
     pub rule: String,
     #[serde(flatten)]
     pub version: RuleVersion,
+    #[serde(rename = "executor-ref")]
+    pub git_ref: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum RuleVersion {
     Source {
-        url: String,
+        git: String,
     },
     Version {
         #[serde(flatten)]
@@ -57,7 +60,6 @@ pub struct Rules {
     pub source: RuleSource,
     #[serde(rename = "override")]
     pub override_field: Vec<Override>,
-    pub prefix: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -67,6 +69,7 @@ pub struct RuleSource {
     pub version: String,
     pub registry: String,
     pub scope: Option<String>,
+    pub prefix: String,
 }
 
 fn default_version() -> String {

@@ -1,6 +1,7 @@
 mod config;
 mod docker;
 mod log;
+mod node_pkg;
 
 use std::{io::Write, path::PathBuf, process::Command, sync::Arc};
 
@@ -68,7 +69,7 @@ async fn clone_repo(
     compose: Arc<Mutex<Compose>>,
 ) -> Result<()> {
     info!(repo = %config.executor.source, "cloning");
-    Repository::clone(&config.executor.source, &folder)?;
+    let repo = Repository::clone(&config.executor.source, &folder)?;
 
     let ovrd = config
         .rules
@@ -79,22 +80,31 @@ async fn clone_repo(
     let package = format!(
         "rule@{}",
         match ovrd {
-            Some(_data) => {
-                todo!("build a package")
+            Some(data) => {
+                checkout_rev(repo, &data.git_ref)?;
+                match &data.version {
+                    config::file::RuleVersion::Source { git } => git.to_owned(),
+                    config::file::RuleVersion::Version { source } => {
+                        let registry = &source.registry;
+                        let prefix = &source.prefix;
+                        node_pkg::build_name(
+                            config.rules.source.scope.as_deref(),
+                            registry,
+                            &rule,
+                            prefix,
+                            &config.rules.source.version,
+                        )
+                    }
+                }
             }
             None => {
-                let scope = config
-                    .rules
-                    .source
-                    .scope
-                    .as_ref()
-                    .and_then(|f| format!("{f}/").into())
-                    .unwrap_or_default();
-
-                let registry = &config.rules.source.registry;
-                format!(
-                    "{registry}:{scope}{}{rule}{}",
-                    config.rules.prefix, config.rules.source.version
+                checkout_rev(repo, &config.executor.git_ref)?;
+                node_pkg::build_name(
+                    config.rules.source.scope.as_deref(),
+                    &config.rules.source.registry,
+                    &rule,
+                    &config.rules.source.prefix,
+                    &config.rules.source.version,
                 )
             }
         }
@@ -111,9 +121,23 @@ async fn clone_repo(
 
     let mut file = compose.lock().await;
     file.services.insert(
-        format!("{}{rule}", config.rules.prefix),
+        format!("{}{rule}", config.rules.source.prefix),
         ComposeService::from((folder.to_string_lossy().to_string(), rule)).await?,
     );
 
+    Ok(())
+}
+
+fn checkout_rev(repo: Repository, rev: &str) -> Result<()> {
+    let (object, reference) = repo.revparse_ext(rev)?;
+
+    repo.checkout_tree(&object, None)?;
+
+    match reference {
+        // gref is an actual reference like branches or tags
+        Some(gref) => repo.set_head(gref.name().unwrap()),
+        // this is a commit, not a reference
+        None => repo.set_head_detached(object.id()),
+    }?;
     Ok(())
 }
