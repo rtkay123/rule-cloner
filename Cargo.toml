@@ -5,6 +5,9 @@ edition = "2021"
 description = "A tool that generates a docker compose file from a rule spec"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "rule-cloner"
+path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0.75"
