@@ -1,0 +1,25 @@
+[package]
+name = "rule-cloner"
+version = "0.1.0"
+edition = "2021"
+description = "A tool that generates a docker compose file from a rule spec"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.75"
+clap = { version = "4.4.7", features = ["derive"] }
+futures-util = "0.3.28"
+git2 = "0.18.1"
+serde = { version = "1.0.189", features = ["derive"] }
+serde_yaml = "0.9.25"
+tokio = { version = "1.33.0", features = ["full"] }
+toml = "0.8.4"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+
+[profile.release]
+panic = "abort"
+lto = true
+strip = true
+codegen-units = 1

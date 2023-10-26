@@ -1,0 +1,25 @@
+[executor]
+source = "https://github.com/frmscoe/rule-executer.git"
+branch = "main"
+
+[rules]
+registry = "npm"
+scope = "@somescope"
+prefix = "rule-"
+rules = [ "abc", "def" ]
+
+  [[rules.override]]
+  rule = "abc"
+  registry = "npm"
+  scope = "@external"
+  version = "2.0.0" # defaults to @latest
+  prefix = "not-rule-"
+  # executor-branch = ""
+
+  [[rules.override]]
+  rule = "def"
+  # this key should be 'git'
+  url = "http://i.want-a-git-version.com" # no version spec needed
+
+
+# vim:ft=toml
