@@ -76,14 +76,19 @@ async fn create_env(rule: &str, destination: &str) -> Result<()> {
     let _ = write(&mut file, "PRODUCER_STREAM", format!("RuleResponse{rule}")).await;
     let _ = write(&mut file, "CONSUMER_STREAM", format!("RuleRequest{rule}")).await;
 
-    let _ = write(&mut file, "DATABASE_NAME", "transactionHistory".into()).await;
-    let _ = write(&mut file, "DATABASE_URL", "tcp://arango:8529".into()).await;
-    let _ = write(&mut file, "DATABASE_USER", "root".into()).await;
-    let _ = write(&mut file, "DATABASE_PASSWORD", "".into()).await;
-    let _ = write(&mut file, "DATABASE_CERT_PATH", "".into()).await;
+    let _ = write(&mut file, "TRANSACTION_HISTORY_DATABASE_NAME", "transactionHistory".into()).await;
+    let _ = write(&mut file, "TRANSACTION_HISTORY_DATABASE_URL", "tcp://arango:8529".into()).await;
+    let _ = write(&mut file, "TRANSACTION_HISTORY_DATABASE_USER", "root".into()).await;
+    let _ = write(&mut file, "TRANSACTION_HISTORY_DATABASE_PASSWORD", "".into()).await;
+    let _ = write(&mut file, "TRANSACTION_HISTORY_DATABASE_CERT_PATH", "".into()).await;
     let _ = write(&mut file, "CONFIG_DATABASE", "Configuration".into()).await;
     let _ = write(&mut file, "CONFIG_COLLECTION", "configuration".into()).await;
-    let _ = write(&mut file, "GRAPH_DATABASE", "pseudonyms".into()).await;
+
+    let _ = write(&mut file, "PSEUDONYMS_DATABASE", "pseudonyms".into()).await;
+    let _ = write(&mut file, "PSEUDONYMS_DATABASE_URL", "tcp://arango:8529".into()).await;
+    let _ = write(&mut file, "PSEUDONYMS_DATABASE_USER", "root".into()).await;
+    let _ = write(&mut file, "PSEUDONYMS_DATABASE_PASSWORD", "".into()).await;
+
     let _ = write(&mut file, "CACHE_TTL", "300".into()).await;
 
     let _ = write(&mut file, "APM_ACTIVE", "false".into()).await;
