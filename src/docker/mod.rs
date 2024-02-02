@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, path::PathBuf};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,7 @@ pub struct Compose {
 #[derive(Deserialize, Serialize, Default)]
 pub struct ComposeService {
     pub build: Build,
-    pub env_file: Vec<String>,
+    pub env_file: Vec<PathBuf>,
     pub restart: String,
     pub depends_on: Vec<String>,
 }
@@ -20,14 +20,16 @@ pub struct ComposeService {
 impl ComposeService {
     pub async fn from(value: (String, String)) -> Result<Self> {
         let (path, rule) = value;
-        create_env(&rule, &path).await?;
+        let mut path_buf = PathBuf::from(&path);
+        path_buf.push(".env");
+        create_env(&rule, &path_buf).await?;
 
         Ok(Self {
             build: Build {
                 context: path.clone(),
                 args: vec!["GH_TOKEN".to_owned()],
             },
-            env_file: vec![format!("{path}/.env"), ".env".into()],
+            env_file: vec![path_buf, ".env".into()],
             restart: "always".into(),
             depends_on: vec!["redis".to_owned(), "arango".to_owned()],
         })
@@ -44,8 +46,8 @@ async fn write(file: &mut File, key: &'static str, value: String) -> Result<()> 
     crate::async_writeln!(file, "{key}={value}")
 }
 
-async fn create_env(rule: &str, destination: &str) -> Result<()> {
-    let path = format!("{destination}/.env");
+async fn create_env(rule: &str, path: &PathBuf) -> Result<()> {
+    let arango_url = String::from("tcp://arango:8529");
 
     let mut file = OpenOptions::new()
         .write(true)
@@ -78,16 +80,11 @@ async fn create_env(rule: &str, destination: &str) -> Result<()> {
 
     let _ = write(
         &mut file,
-        "TRANSACTION_HISTORY_DATABASE_NAME",
+        "TRANSACTION_HISTORY_DATABASE",
         "transactionHistory".into(),
     )
     .await;
-    let _ = write(
-        &mut file,
-        "TRANSACTION_HISTORY_DATABASE_URL",
-        "tcp://arango:8529".into(),
-    )
-    .await;
+    let _ = write(&mut file, "TRANSACTION_HISTORY_DATABASE_URL", arango_url).await;
     let _ = write(
         &mut file,
         "TRANSACTION_HISTORY_DATABASE_USER",
@@ -107,6 +104,9 @@ async fn create_env(rule: &str, destination: &str) -> Result<()> {
     )
     .await;
     let _ = write(&mut file, "CONFIG_DATABASE", "Configuration".into()).await;
+    let _ = write(&mut file, "CONFIG_DATABASE_URL", "tcp://arango:8529".into()).await;
+    let _ = write(&mut file, "CONFIG_DATABASE_USER", "root".into()).await;
+    let _ = write(&mut file, "CONFIG_DATABASE_PASSWORD", "".into()).await;
     let _ = write(&mut file, "CONFIG_COLLECTION", "configuration".into()).await;
 
     let _ = write(&mut file, "PSEUDONYMS_DATABASE", "pseudonyms".into()).await;
