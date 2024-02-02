@@ -68,64 +68,71 @@ async fn clone_repo(
     folder: PathBuf,
     compose: Arc<Mutex<Compose>>,
 ) -> Result<()> {
-    info!(repo = %config.executor.source, "cloning");
-    let repo = Repository::clone(&config.executor.source, &folder)?;
+    debug!(repo = %config.executor.source, dest = %folder.display(), "cloning");
+    match Repository::clone(&config.executor.source, &folder) {
+        Ok(repo) => {
+            let ovrd = config
+                .rules
+                .override_field
+                .iter()
+                .find(|ovrd| ovrd.rule == rule);
 
-    let ovrd = config
-        .rules
-        .override_field
-        .iter()
-        .find(|ovrd| ovrd.rule == rule);
-
-    let package = format!(
-        "rule@{}",
-        match ovrd {
-            Some(data) => {
-                checkout_rev(repo, &data.git_ref)?;
-                match &data.version {
-                    config::file::RuleVersion::Source { git } => git.to_owned(),
-                    config::file::RuleVersion::Version { source } => {
-                        let registry = &source.registry;
-                        let prefix = &source.prefix;
+            let package = format!(
+                "rule@{}",
+                match ovrd {
+                    Some(data) => {
+                        checkout_rev(repo, &data.git_ref)?;
+                        match &data.version {
+                            config::file::RuleVersion::Source { git } => git.to_owned(),
+                            config::file::RuleVersion::Version { source } => {
+                                let registry = &source.registry;
+                                let prefix = &source.prefix;
+                                node_pkg::build_name(
+                                    config.rules.source.scope.as_deref(),
+                                    registry,
+                                    &rule,
+                                    prefix,
+                                    &config.rules.source.version,
+                                )
+                            }
+                        }
+                    }
+                    None => {
+                        checkout_rev(repo, &config.executor.git_ref)?;
                         node_pkg::build_name(
                             config.rules.source.scope.as_deref(),
-                            registry,
+                            &config.rules.source.registry,
                             &rule,
-                            prefix,
+                            &config.rules.source.prefix,
                             &config.rules.source.version,
                         )
                     }
                 }
-            }
-            None => {
-                checkout_rev(repo, &config.executor.git_ref)?;
-                node_pkg::build_name(
-                    config.rules.source.scope.as_deref(),
-                    &config.rules.source.registry,
-                    &rule,
-                    &config.rules.source.prefix,
-                    &config.rules.source.version,
-                )
-            }
+            );
+
+            debug!(rule = package, dest = %folder.display(), "installing npm package");
+            Command::new("npm")
+                .arg("install")
+                .arg("--prefix")
+                .arg(&folder)
+                .arg(&package)
+                .output()
+                .expect("failed to execute process");
+            info!(rule = package, "ready");
+
+            let mut file = compose.lock().await;
+            file.services.insert(
+                format!("{}{rule}", config.rules.source.prefix),
+                ComposeService::from((folder.to_string_lossy().to_string(), rule)).await?,
+            );
+
+            Ok(())
         }
-    );
-
-    debug!(rule = package, "installing");
-    Command::new("npm")
-        .arg("install")
-        .arg("--prefix")
-        .arg(&folder)
-        .arg(package)
-        .output()
-        .expect("failed to execute process");
-
-    let mut file = compose.lock().await;
-    file.services.insert(
-        format!("{}{rule}", config.rules.source.prefix),
-        ComposeService::from((folder.to_string_lossy().to_string(), rule)).await?,
-    );
-
-    Ok(())
+        Err(e) => {
+            error!("{e}");
+            anyhow::bail!("{e}")
+        }
+    }
 }
 
 fn checkout_rev(repo: Repository, rev: &str) -> Result<()> {
