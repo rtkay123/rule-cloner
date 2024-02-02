@@ -20,6 +20,8 @@ async fn main() -> Result<()> {
     let cli = cli::Cli::parse();
     log::init();
 
+    tokio::fs::create_dir_all(&cli.output).await?;
+
     let config = Arc::new(AppConfig::try_from(&cli.config)?);
 
     let compose = Arc::new(Mutex::new(Compose::default()));
@@ -111,13 +113,23 @@ async fn clone_repo(
             );
 
             debug!(rule = package, dest = %folder.display(), "installing npm package");
-            Command::new("npm")
-                .arg("install")
-                .arg("--prefix")
-                .arg(&folder)
-                .arg(&package)
-                .output()
-                .expect("failed to execute process");
+
+            let folder_str = folder.to_str().expect("to have valid str");
+
+            let command = format!("npm install --prefix {folder_str} {package}");
+
+            if cfg!(target_os = "windows") {
+                Command::new("cmd")
+                    .args(["/C", &command])
+                    .output()
+                    .expect("failed to execute process")
+            } else {
+                Command::new("sh")
+                    .arg("-c")
+                    .arg(command)
+                    .output()
+                    .expect("failed to execute process")
+            };
             info!(rule = package, "ready");
 
             let mut file = compose.lock().await;
